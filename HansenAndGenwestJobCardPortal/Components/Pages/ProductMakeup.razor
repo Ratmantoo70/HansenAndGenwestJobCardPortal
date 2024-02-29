@@ -1,0 +1,351 @@
+﻿@page "/ProductMakeup"
+@rendermode @(new InteractiveServerRenderMode(false))
+
+@inject ISageInterface SageService
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Product Makeup</PageTitle>
+<div class="header">
+    <h3>Product Makeup</h3>
+</div>
+
+<div id="target" class="row">
+    <div class="col-3">
+        @if (theMakeUpProducts == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <SfGrid DataSource="@theMakeUpProducts" AllowFiltering="true" EnableVirtualization="true" Height="600">
+            <GridTemplates>
+                <ToolbarTemplate>
+                    <SfToolbar OverflowMode="OverflowMode.MultiRow">
+                        <ToolbarEvents Clicked="ToolbarClickHandler"></ToolbarEvents>
+                        <ToolbarItems>
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Add" Text="Add" TooltipText="Add"></ToolbarItem>                            
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-delete" Id="Delete" Text="Delete" TooltipText="Delete" Disabled="@ToolBarDisabled"></ToolbarItem>
+                        </ToolbarItems>
+                    </SfToolbar>
+                </ToolbarTemplate>
+            </GridTemplates>
+            <GridEvents RowSelected="RowSelecthandler" TValue="Product"></GridEvents>
+            <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+            <GridSortSettings>
+                <GridSortColumns>
+                    <GridSortColumn Field="Description" Direction="SortDirection.Ascending"></GridSortColumn>
+                </GridSortColumns>
+            </GridSortSettings>
+            <GridColumns>
+                <GridColumn Field="StockLink" HeaderText="Stock Link" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="0"></GridColumn>
+                <GridColumn Field="Code" HeaderText="Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Left" Width="120"></GridColumn>
+                <GridColumn Field="Description" HeaderText="Description Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" ></GridColumn>
+                <GridColumn Field="ItemActive" HeaderText="Active" DisplayAsCheckBox="true" Width="80" AllowFiltering="false"></GridColumn>
+            </GridColumns>
+        </SfGrid>
+        }
+    </div>
+    <div class="col-9">
+    @if (theMakeUpProductComponents == null)
+        {
+            <p><em>Select a product to view...</em></p>
+        }
+        else
+        {
+            <SfGrid DataSource="@theMakeUpProductComponents" AllowFiltering="true" EnableVirtualization="true" Height="600">
+                <GridTemplates>
+                    <ToolbarTemplate>
+                        <SfToolbar OverflowMode="OverflowMode.MultiRow">
+                            <ToolbarEvents Clicked="ToolbarClickHandler2"></ToolbarEvents>
+                            <ToolbarItems>
+                                <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Add" Text="Add" TooltipText="Add"></ToolbarItem>
+                                <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-edit" Id="Edit" Text="Edit" TooltipText="Edit" Disabled="@ToolBarDisabled2"></ToolbarItem>
+                                <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-delete" Id="Delete" Text="Delete" TooltipText="Delete" Disabled="@ToolBarDisabled2"></ToolbarItem>
+                            </ToolbarItems>
+                        </SfToolbar>
+                    </ToolbarTemplate>
+                </GridTemplates>
+                <GridEvents RowSelected="RowSelecthandler2" TValue="MakeUpProductComponents"></GridEvents>
+                <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+                <GridSortSettings>
+                    <GridSortColumns>
+                        <GridSortColumn Field="Description" Direction="SortDirection.Ascending"></GridSortColumn>
+                    </GridSortColumns>
+                </GridSortSettings>
+                <GridColumns>
+                    <GridColumn Field="Code" HeaderText="Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" ></GridColumn>
+                    <GridColumn Field="Description" HeaderText="Description" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Left"></GridColumn>
+                    <GridColumn Field="Reference" HeaderText="Reference" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="240"></GridColumn>
+                    <GridColumn Field="Quantity" HeaderText="Quantity" Format="F" Width="120"></GridColumn>
+                    <GridColumn Field="Procedure" HeaderText="Procedure" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="240"></GridColumn>
+                    <GridColumn Field="Price" HeaderText="Price" Format="F" Width="120"></GridColumn>
+                    <GridColumn Field="UseSagePrice" HeaderText="UseSagePrice" DisplayAsCheckBox="true" Width="120"></GridColumn>
+                </GridColumns>
+            </SfGrid>
+        }
+    </div>
+</div>
+
+
+<SfDialog Target="#target"
+          IsModal="true"
+          ShowCloseIcon="true"
+          @bind-Visible="@IsVisible2"
+          Width="500px">
+    <DialogTemplates>
+        <Header>Add Job Card </Header>
+        <Content>
+            <SfDataForm ID="MyForm"
+                        Model="@SelectedMakeUpProduct"
+                        ButtonsAlignment="FormButtonsAlignment.Right"
+                        ValidationDisplayMode="FormValidationDisplay.Tooltip"
+                        OnSubmit="SubmitHandler">
+                <FormValidator>
+                    <DataAnnotationsValidator></DataAnnotationsValidator>
+                </FormValidator>
+                <FormItems>                   
+                     <div class="form-group">
+                        <label class="e-form-label">Code</label>
+                        <SfTextBox @bind-Value="SelectedMakeUpProduct!.Code" />
+                    </div>
+                    <div class="form-group">
+                        <label class="e-form-label">Description</label>
+                        <SfTextBox @bind-Value="SelectedMakeUpProduct!.Description" />
+                    </div>
+                </FormItems>
+                <FormButtons>
+                    <SfButton IsPrimary="true" typeof="submit">Add</SfButton>
+                </FormButtons>
+            </SfDataForm>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+<SfDialog Target="#target"
+          IsModal="true"
+          ShowCloseIcon="true"
+          @bind-Visible="@IsVisible2"
+          Width="500px">
+    <DialogTemplates>
+        <Header>
+            @if (SelectedMakeUpProductComponent.Id==0)
+            {
+                <span>Add Makeup Product Component</span>
+            }
+            else
+            {
+                <span>Edit Makeup Product Component</span>
+            }
+        </Header>
+        <Content>
+            <SfDataForm ID="MyForm"
+                        Model="@SelectedMakeUpProductComponent"
+                        ButtonsAlignment="FormButtonsAlignment.Right"
+                        ValidationDisplayMode="FormValidationDisplay.Tooltip"
+                        OnSubmit="SubmitHandler2">
+                <FormValidator>
+                    <DataAnnotationsValidator></DataAnnotationsValidator>
+                </FormValidator>
+                <FormItems>                    
+                     <div class="form-group">
+                        <label class="e-form-label">Code</label>                      
+                        <SfAutoComplete TItem="Product" @bind-Value="@(SelectedProduct.Code)" TValue="string" DataSource="@theProducts">
+                            <AutoCompleteEvents TItem="Product" TValue="string" ValueChange="@SelectedProductChanged"></AutoCompleteEvents>
+                            <AutoCompleteFieldSettings Value="Code"></AutoCompleteFieldSettings>
+                        </SfAutoComplete>
+                    </div>
+                    <div class="form-group">
+                        <label class="e-form-label">Description</label>
+                        <SfAutoComplete TItem="Product" @bind-Value="@(SelectedProduct.Description)" TValue="string" DataSource="@theProducts">
+                            <AutoCompleteEvents TItem="Product" TValue="string" ValueChange="@SelectedProductChanged"></AutoCompleteEvents>
+                            <AutoCompleteFieldSettings Value="Description"></AutoCompleteFieldSettings>
+                        </SfAutoComplete>
+                    </div>
+                    @if (SelectedProduct.Type == ProductType.SageProduct)
+                    {
+                        <div class="form-group">
+                            <label class="e-form-label">Procedure</label>
+                            <SfDropDownList TValue="string" TItem="string" DataSource="Procedures" @bind-Value="SelectedMakeUpProductComponent.Procedure" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                                <DropDownListFieldSettings Value="Name"></DropDownListFieldSettings>
+                                <DropDownListEvents TValue="string" TItem="string" ValueChange="OnValueChangeProcedure"></DropDownListEvents>
+                            </SfDropDownList>
+                        </div>
+                        <div class="form-group">
+                            <label class="e-form-label">Reference</label>
+                        <SfTextBox @bind-Value="SelectedMakeUpProductComponent!.Reference" />
+                    </div>
+                    }
+                     <div class="form-group">
+                        <label class="e-form-label">Quantity</label>
+                        <SfNumericTextBox @bind-Value="SelectedMakeUpProductComponent!.Quantity" ShowSpinButton="false" />
+                    </div>                   
+                    @if (SelectedMakeUpProductComponent!=null && !SelectedMakeUpProductComponent!.UseSagePrice)
+                    {
+                    <div class="form-group">
+                        <label class="e-form-label">Price</label>
+                        <SfNumericTextBox @bind-Value="SelectedMakeUpProductComponent!.Price" ShowSpinButton="false" />
+                    </div>
+                    }
+                    <div class="form-group">
+                        <SfCheckBox Label="Use Sage Price" LabelPosition="Syncfusion.Blazor.Buttons.LabelPosition.Before" @bind-Checked="SelectedMakeUpProductComponent!.UseSagePrice" />
+                    </div>
+                </FormItems>
+                <FormButtons>
+                    <SfButton IsPrimary="true" typeof="submit">Add</SfButton>
+                </FormButtons>
+            </SfDataForm>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+@* <div class="form-group">
+    <label class="e-form-label">Product Code</label>
+    <SfDropDownList TValue="string" TItem="Product" DataSource="theProducts" @bind-Value="SelectedMakeUpProduct.Code" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+        <DropDownListFieldSettings Value="Code"></DropDownListFieldSettings>
+        <DropDownListEvents TValue="string" TItem="Product" ValueChange="OnValueChange"></DropDownListEvents>
+    </SfDropDownList>
+</div>
+<div class="form-group">
+    <label class="e-form-label">Product Description</label>
+    <SfDropDownList TValue="string" TItem="Product" DataSource="theProducts" @bind-Value="SelectedMakeUpProduct.Description" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+        <DropDownListFieldSettings Value="Description"></DropDownListFieldSettings>
+        <DropDownListEvents TValue="string" TItem="Product" ValueChange="OnValueChange"></DropDownListEvents>
+    </SfDropDownList>
+</div> *@
+@code {
+
+    List<Product>? theProducts { get; set; }
+    Product? SelectedProduct { get; set; }
+    List<Product>? theMakeUpProducts { get; set; }
+    List<MakeUpProductComponents>? theMakeUpProductComponents { get; set; }
+    Product? SelectedMakeUpProduct { get; set; }
+    MakeUpProductComponents? SelectedMakeUpProductComponent { get; set; }
+    
+
+    List<string> Procedures { get; set; }
+
+    bool ToolBarDisabled = true;
+    bool ToolBarDisabled2 = true;
+    bool IsVisible = false;
+    bool IsVisible2 = false;
+
+    protected override async Task OnInitializedAsync()
+    {       
+        theMakeUpProducts = await SageService.GetMakeUpProducts();
+        Procedures = await SageService.GetProcedures();
+        StateHasChanged();
+    }
+
+    public async Task RowSelecthandler(RowSelectEventArgs<Product> Args)
+    {
+        if (Args.Data == null)
+        {           
+            ToolBarDisabled = true;
+            return;
+        }
+        SelectedMakeUpProduct = Args.Data;
+        theMakeUpProductComponents = await SageService.GetMakeUpProductComponents(SelectedMakeUpProduct.StockLink);
+        ToolBarDisabled = false;
+    }
+
+    public async Task RowSelecthandler2(RowSelectEventArgs<MakeUpProductComponents> Args)
+    {
+        if (Args.Data == null)
+        {
+            ToolBarDisabled2 = true;
+            return;
+        }
+        SelectedMakeUpProductComponent = Args.Data;
+        ToolBarDisabled2 = false;
+    }
+
+    public async Task ToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Add")
+        {
+            SelectedMakeUpProduct = new Product();
+            SelectedMakeUpProduct.Type = ProductType.MakeUpProduct;
+
+            IsVisible = true;
+            StateHasChanged();
+        }        
+        if (args.Item.Id == "Delete")
+        {      
+            if (!await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this line?"))
+            {
+                return;
+            }
+            await SageService.DeleteMakeUpProduct(SelectedMakeUpProduct.StockLink);
+
+            theMakeUpProducts = await SageService.GetMakeUpProducts();
+            StateHasChanged();
+        }
+    }
+
+    public async Task ToolbarClickHandler2(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Add")
+        {
+            theProducts = await SageService.GetAllProducts();
+            SelectedProduct = new Product();
+            SelectedMakeUpProductComponent = new MakeUpProductComponents();
+            IsVisible2 = true;
+            StateHasChanged();
+        }
+        if (args.Item.Id == "Edit")
+        {
+            theProducts = await SageService.GetAllProducts();
+            SelectedProduct = await SageService.GetAllProductsByID(SelectedMakeUpProductComponent!.StockLink);
+            IsVisible2 = true;
+            StateHasChanged();
+        }
+
+        if (args.Item.Id == "Delete")
+        {
+            if (!await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this line?"))
+            {
+                return;
+            }
+            await SageService.DeleteMakeUpProductComponent(SelectedMakeUpProductComponent!.Id);
+
+            theMakeUpProductComponents = await SageService.GetMakeUpProductComponents(SelectedMakeUpProduct.StockLink);
+            StateHasChanged();
+        }
+    }
+
+    public async void SubmitHandler()
+    {
+        SelectedMakeUpProduct.StockLink = "WMUP" + DateTime.Now.Ticks;
+        await SageService.AddMakeUpProduct(SelectedMakeUpProduct);
+        IsVisible = false;
+        theMakeUpProducts = await SageService.GetMakeUpProducts();
+        StateHasChanged();
+    }
+
+    public async void SubmitHandler2()
+    {
+        SelectedMakeUpProductComponent!.ParentStockLink = SelectedMakeUpProduct!.StockLink;
+        await SageService.AddUpdateMakeUpProductComponent(SelectedMakeUpProductComponent);
+        IsVisible2 = false;
+        theMakeUpProductComponents = await SageService.GetMakeUpProductComponents(SelectedMakeUpProduct.StockLink);
+        StateHasChanged();
+    }
+
+    async Task SelectedProductChanged(ChangeEventArgs<string, Product> args)
+    {
+        await Task.Delay(1);
+        if (args.ItemData == null)
+        {
+            SelectedProduct = new Product();
+            return;
+        }
+        SelectedProduct = args.ItemData;
+        SelectedMakeUpProductComponent!.StockLink = SelectedProduct.StockLink;
+        SelectedMakeUpProductComponent.Code = SelectedProduct.Code;
+        SelectedMakeUpProductComponent.Description = SelectedProduct.Description;
+    }
+    public void OnValueChangeProcedure(ChangeEventArgs<string, string> args)
+    {
+        SelectedMakeUpProductComponent.Procedure = args.Value;
+    }
+}

@@ -1,0 +1,46 @@
+﻿@page "/Products"
+@attribute [StreamRendering]
+
+@inject ISageInterface SageService 
+
+<PageTitle>Products</PageTitle>
+<div class="header">
+    <h3>Products</h3>
+</div>
+
+@if (theProducts == null)
+{
+     <p><em>Loading...</em></p>    
+}
+else
+{
+    <div data-permanent>
+        <SfGrid DataSource="@theProducts" AllowPaging="false" AllowFiltering="true" AllowSorting="true" AllowResizing="true" EnableStickyHeader="true"  AllowReordering="true" Height="600">
+            <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+            <GridSortSettings>
+                <GridSortColumns>
+                    <GridSortColumn Field="Description" Direction="SortDirection.Ascending"></GridSortColumn>
+                </GridSortColumns>
+            </GridSortSettings>
+            <GridColumns>
+                <GridColumn Field="StockLink" HeaderText="Stock Link" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="240"></GridColumn>
+                <GridColumn Field="Code" HeaderText="Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="240"></GridColumn>
+                <GridColumn Field="Description" HeaderText="Description Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width=""></GridColumn> 
+                <GridColumn Field="ItemActive" HeaderText="Active" DisplayAsCheckBox="true" Width="150"></GridColumn>
+            </GridColumns>
+        </SfGrid>
+    </div>
+}
+
+@code {
+
+    List<Product>? theProducts { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        theProducts = await SageService.GetSageProducts();
+    }
+
+  
+}
+

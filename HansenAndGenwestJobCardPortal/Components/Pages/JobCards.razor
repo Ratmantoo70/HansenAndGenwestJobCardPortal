@@ -1,0 +1,178 @@
+﻿@page "/JobCards"
+@rendermode @(new InteractiveServerRenderMode(false))
+
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Navigations
+@using System.ComponentModel
+
+@inject ISageInterface sageService
+@inject NavigationManager navMan
+
+@attribute [StreamRendering]
+
+<PageTitle>Imported Job Cards</PageTitle>
+
+<h2>Imported Job Cards</h2>
+
+<div id="target">
+    <SfGrid @ref="theGrid" DataSource="@theJobCards" AllowFiltering="true" EnableVirtualization="true" Height="600">
+        <GridTemplates>
+            <ToolbarTemplate>
+                <SfToolbar OverflowMode="OverflowMode.MultiRow">
+                    <ToolbarEvents Clicked="ToolbarClickHandler"></ToolbarEvents>
+                    <ToolbarItems>
+                        <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Add" Text="Add" TooltipText="Add"></ToolbarItem>
+                        <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-edit" Id="Edit" Text="View" TooltipText="View" Disabled="@ToolBarDisabled"></ToolbarItem>
+                        <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-delete" Id="Delete" Text="Delete" TooltipText="Delete" Disabled="@DeleteDisabled"></ToolbarItem>
+                    </ToolbarItems>
+                </SfToolbar>
+            </ToolbarTemplate>
+        </GridTemplates>
+        <GridEvents RowSelected="RowSelecthandler" TValue="ImportHeader"></GridEvents>
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+        <GridColumns>
+            <GridColumn Field="ID" HeaderText="ID" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="80"></GridColumn>
+            <GridColumn Field="Customer" HeaderText="Customer" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="240"></GridColumn>
+            <GridColumn Field="JobDescription" HeaderText="Job Description" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right"></GridColumn>
+            <GridColumn Field="ExternalOrderNumber" HeaderText="External Order Number" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="320"></GridColumn>
+            <GridColumn Field="StartDate" HeaderText="Start Date" Format="dd MMM yyyy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="180"></GridColumn>
+            <GridColumn Field="DeliveryDate" HeaderText="Delivery Date" Format="dd MMM yyyy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="180"></GridColumn>
+            <GridColumn Field="ClosingDate" HeaderText="Closing Date" Format="dd MMM yyyy" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="180"></GridColumn>
+            <GridColumn Field="JCNumber" HeaderText="Job Card Number" Width="120" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right"></GridColumn>
+        </GridColumns>
+    </SfGrid>
+</div>
+<SfDialog Target="#target" 
+            IsModal="true" 
+            ShowCloseIcon="true"
+            @bind-Visible="@IsVisible"
+            Width="500px"
+            >
+            <DialogTemplates>
+        <Header>Add Job Card </Header>
+        <Content>
+             <SfDataForm ID="MyForm"
+                Model="@SeletcedImportHeader"
+                ButtonsAlignment="FormButtonsAlignment.Right"
+                ValidationDisplayMode="FormValidationDisplay.Tooltip"
+                OnSubmit="SubmitHandler">
+        <FormValidator>
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+        </FormValidator>
+        <FormItems>
+            <div class="form-group">
+                <label class="e-form-label">Client</label>
+                <SfDropDownList TValue="string" TItem="SageClient" DataSource="theClients" @bind-Value="SeletcedImportHeader.Customer" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                    <DropDownListFieldSettings Value="Name"></DropDownListFieldSettings>
+                    <DropDownListEvents TValue="string" TItem="SageClient" ValueChange="OnValueChange"></DropDownListEvents>
+                </SfDropDownList>
+            </div>
+            <div class="form-group">
+                <label class="e-form-label">Job Description</label>
+                <SfTextBox @bind-Value="SeletcedImportHeader.JobDescription"/>
+            </div>
+            <div class="form-group">
+                <label class="e-form-label">External Order Number</label>
+                <SfTextBox @bind-Value="SeletcedImportHeader.ExternalOrderNumber"/>
+            </div>
+            <div class="form-group">
+                <label class="e-form-label">Start Date</label>
+                <SfDatePicker TValue="DateTime" Format="dd MMM yyyy" @bind-Value="SeletcedImportHeader.StartDate" EnableMask="true"></SfDatePicker>
+            </div>
+            <div class="form-group">
+                <label class="e-form-label">Delivery Date</label>
+                <SfDatePicker TValue="DateTime" Format="dd MMM yyyy" @bind-Value="SeletcedImportHeader.DeliveryDate" EnableMask="true"></SfDatePicker>
+            </div>
+            <div class="form-group">
+                <label class="e-form-label">Closing Date</label>
+                <SfDatePicker TValue="DateTime" Format="dd MMM yyyy" @bind-Value="SeletcedImportHeader.ClosingDate" EnableMask="true"></SfDatePicker>
+            </div>
+        </FormItems>
+        <FormButtons>
+            <SfButton IsPrimary="true" typeof="submit">Add</SfButton>
+        </FormButtons>
+    </SfDataForm>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+@code {
+
+    List<ImportHeader>? theJobCards { get; set; }
+    ImportHeader? SeletcedImportHeader { get; set; }
+    SfGrid<ImportHeader>? theGrid;
+    List<SageClient> theClients { get; set; }
+    bool ToolBarDisabled = true;
+    bool DeleteDisabled { get; set; } = true;    
+    bool IsVisible { get; set; } = false;
+
+    protected override async Task OnInitializedAsync()
+    { 
+        theJobCards = await sageService.GetImportHeaders();
+        theClients = await sageService.GetSageClients();
+    }
+
+
+
+    public void OnValueChange(ChangeEventArgs<string, SageClient> args)
+    {
+        SageClient sc = args.ItemData;
+        if(sc==null)
+        {
+            return;
+        }
+        SeletcedImportHeader.CustomerID= sc.DCLink;
+        SeletcedImportHeader.Customer = sc.Name;
+    }
+
+    public async Task RowSelecthandler(RowSelectEventArgs<ImportHeader> Args)
+    {
+        if (Args.Data == null)
+        {
+            DeleteDisabled = true;
+            ToolBarDisabled = true;
+            return;
+        }
+        SeletcedImportHeader = Args.Data;
+        if (SeletcedImportHeader.JCNumber==null)
+        {
+            DeleteDisabled = false;
+        }
+        else
+        {
+            DeleteDisabled = true;
+        }
+        ToolBarDisabled = false;
+    }
+
+    public async Task ToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Add")
+        {
+            SeletcedImportHeader = new ImportHeader();
+            SeletcedImportHeader.StartDate = DateTime.Now;
+            SeletcedImportHeader.DeliveryDate = DateTime.Now;
+            SeletcedImportHeader.ClosingDate = DateTime.Now;
+            IsVisible = true;
+        }
+        if (args.Item.Id == "Edit")
+        {
+            navMan.NavigateTo($"/JobCardsLines/{SeletcedImportHeader.ID}");
+        }
+        if (args.Item.Id == "Delete")
+        {
+            await sageService.DeleteImportHeaderByHeaderID(SeletcedImportHeader.ID);
+            await sageService.DeleteImportLinesByHeaderID(SeletcedImportHeader.ID);
+            theJobCards = await sageService.GetImportHeaders();
+            StateHasChanged();
+        }
+    }
+
+    public async void SubmitHandler()
+    {
+        await sageService.AddImportHeader(SeletcedImportHeader);
+        IsVisible = false;
+        theJobCards = await sageService.GetImportHeaders();
+        StateHasChanged();
+    }
+}

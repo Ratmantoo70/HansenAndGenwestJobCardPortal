@@ -1,0 +1,625 @@
+﻿@page "/JobCardsLines/{ID:int}"
+@rendermode @(new InteractiveServerRenderMode(false))
+
+@using Syncfusion.Blazor
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.XlsIO
+
+@inject ISageInterface sageService
+@inject IJSRuntime JsRuntime
+
+@attribute [StreamRendering]
+
+<PageTitle>Job Card Details</PageTitle>
+
+<h2>Job Card Details</h2>
+
+<SfToast @ref="Toast" Timeout="@Options.Timeout" CssClass="@Options.Css" ShowCloseButton="true">
+    <ToastTemplates>
+        <Title>
+            @Options.Title
+        </Title>
+        <Content>
+            @Options.Content
+        </Content>
+    </ToastTemplates>
+    <ToastPosition X="Center" Y="Bottom"></ToastPosition>
+</SfToast>
+
+<div id="container" class="container-fluid min-vh-100 d-flex flex-column">
+
+    <SfSpinner @bind-Visible="@SpinnerVisible" Label="Loading...." CssClass="e-spin-overlay" Size="50">
+    </SfSpinner>
+
+    <SfSpinner @bind-Visible="@ProcessingSpinnerVisible" Label="Processing......" CssClass="e-spin-overlay" Size="50">
+    </SfSpinner>
+
+    @if (theJobCard!=null)
+    {
+        <div class="row pb-2">
+            <div class="col-3">
+                <SfTextBox Placeholder="Customer" CssClass="me-1" @bind-Value="@theJobCard.Customer" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfTextBox>
+                <SfTextBox Placeholder="Job Description" CssClass="me-1" @bind-Value="@theJobCard.JobDescription" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfTextBox>
+                <SfTextBox Placeholder="External Order Number" CssClass="me-1" @bind-Value="@theJobCard.ExternalOrderNumber" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfTextBox>
+            </div>
+            <div class="col-3">
+                <SfDatePicker TValue="DateTime" @bind-Value="@theJobCard!.StartDate" Placeholder="Start Date" Format="dd MMM yyyy" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfDatePicker>
+                <SfDatePicker TValue="DateTime" @bind-Value="@theJobCard!.DeliveryDate" Placeholder="Delivery Date" Format="dd MMM yyyy" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfDatePicker>
+                <SfDatePicker TValue="DateTime" @bind-Value="@theJobCard!.ClosingDate" Placeholder="Closing Date" Format="dd MMM yyyy" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfDatePicker>
+            </div>
+            <div class="col-3">
+                <SfTextBox Placeholder="Job Card Number" CssClass="me-1" @bind-Value="@theJobCard.JCNumber" FloatLabelType="@FloatLabelType.Always" Enabled="false"></SfTextBox>
+            </div>
+            <div class="col-3">
+                @if (@theJobCard.JCNumber==null)
+                {
+                    <div class="row w-25 pb-2">
+                        <SfButton CssClass="e-btn e-outline e-primary pe-2" OnClick="PostToSage">Post To Sage</SfButton>
+                    </div>
+                }
+                else
+                {
+                    @if (@theJobCardLines.Any(x=>x.JCLine==0))
+                    {
+                        <div class="row  w-25 pb-2">
+                            <SfButton CssClass="e-btn e-outline e-primary pe-2" OnClick="PostAdditionsToSage">Post Additions</SfButton>
+                         </div>
+                    }
+                    <div class="row  w-25 pb-2">
+                        <SfButton CssClass="e-btn e-outline e-primary pe-2" OnClick="PostCustom">Re Post Custom</SfButton>
+                     </div>
+                }
+            </div>
+
+        </div>    
+    }
+    @if (!SpinnerVisible)
+    {
+        <SfGrid @ref="Grid" 
+            DataSource="@theJobCardLines" 
+            AllowFiltering = "true" 
+            AllowSelection = "true" 
+            AllowSorting = "true"           
+            EnableVirtualization = "true"
+            Height = "500">
+            <GridTemplates>
+                <ToolbarTemplate>
+                    <SfToolbar>
+                        <ToolbarEvents Clicked="ToolbarClickHandler"></ToolbarEvents>
+                        <ToolbarItems>  
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Add" Text="Add Line"></ToolbarItem>
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-upload-1" Id="Upload" Text="Upload"></ToolbarItem>
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-delete" Id="Delete" Text="Delete Line" Disabled="@ToolBarPriceDisabled"></ToolbarItem>
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-update" Id="UseEVOPrice" Text="Use EVO Price" Disabled="@ToolBarPriceDisabled"></ToolbarItem>
+                            @if (theJobCardLines != null && theJobCardLines.Count > 0)
+                            {
+                                <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-delete-column" Id="Clear" Text="Clear Lines"></ToolbarItem>
+                            }
+                            <ToolbarItem Type="ItemType.Input" Align="ItemAlign.Right">
+                            <Template>
+                                <SfCheckBox @bind-Checked="isChecked" Label="Errors Only" @onchange="onChangeCheckBox"></SfCheckBox>
+                            </Template>
+                        </ToolbarItem>
+                    </ToolbarItems>
+                </SfToolbar>
+            </ToolbarTemplate>                
+        </GridTemplates>
+        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+        <GridEvents RowSelected="RowSelectHandler" QueryCellInfo="QueryCellInfoHandler" TValue="ImportLine"></GridEvents>
+            <GridSortSettings>
+                <GridSortColumns>
+                    <GridSortColumn Field="ID" Direction="SortDirection.Ascending"></GridSortColumn>
+                </GridSortColumns>
+            </GridSortSettings>
+        <GridColumns>
+            <GridColumn Field="ID" HeaderText="ID" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="80"></GridColumn>
+            <GridColumn Field="EvoCode" HeaderText="Evo Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="120"></GridColumn>
+            <GridColumn Field="EvoDesc" HeaderText="Evo Description" Width="240"></GridColumn>
+            <GridColumn Field="ExcelCode" HeaderText="Excel Code" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="120"></GridColumn>
+            <GridColumn Field="ExcelDesc" HeaderText="Excel Description" Width="240"></GridColumn>
+            <GridColumn Field="ExcelPrice" HeaderText="Excel Price" Format="F" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="100"></GridColumn>
+            <GridColumn Field="EvoPrice" HeaderText="Evo Price" Format="F" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="100"></GridColumn>
+            <GridColumn Field="Qty" HeaderText="Quantity" Format="F" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="100"></GridColumn>
+            <GridColumn Field="Procedure" HeaderText="Procedure"  Width="200"></GridColumn>
+            <GridColumn Field="Reference" HeaderText="Reference"  Width="100"></GridColumn>
+            <GridColumn Field="LatestCost" HeaderText="Latest Cost" Format="F" TextAlign="Syncfusion.Blazor.Grids.TextAlign.Right" Width="100"></GridColumn>
+            <GridColumn Field="ParentCode" HeaderText="ParentCode" Width="100"></GridColumn>
+            <GridColumn Field="ParentsParentCode" HeaderText="ParentsParentCode" Width="100"></GridColumn>
+        </GridColumns>       
+    </SfGrid>
+}
+</div>
+<SfDialog Target="#container" IsModal="true" ShowCloseIcon="true" @bind-Visible="@IsUpoadVisible" Width="500px">
+    <DialogTemplates>
+        <Header> Upload from Excel </Header>
+        <Content> 
+            <SfUploader ID="UploadFiles" AllowMultiple=false>
+                <UploaderEvents ValueChange="@OnChange"></UploaderEvents>
+            </SfUploader>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+    <SfDialog Target="#container" IsModal="true" ShowCloseIcon="true" @bind-Visible="@IsAddLineVisible" Width="500px">
+    <DialogTemplates>
+        <Header>Add Line </Header>
+        <Content>
+            <SfDataForm ID="MyForm"
+                Model="@NewLine"
+                ButtonsAlignment="FormButtonsAlignment.Right"
+                ValidationDisplayMode="FormValidationDisplay.Tooltip"
+                OnSubmit="SubmitHandler">
+        <FormValidator>
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+        </FormValidator>
+        <FormItems>
+           @*  <div class="form-group">
+                <label class="e-form-label">Product</label>
+                <SfDropDownList TValue="string" TItem="Product" DataSource="Products" @bind-Value="NewLine.Description" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                    <DropDownListFieldSettings Value="Description"></DropDownListFieldSettings>
+                    <DropDownListEvents TValue="string" TItem="Product" ValueChange="OnValueChange"></DropDownListEvents>
+                </SfDropDownList>
+            </div> *@
+            <div class="form-group">
+                <label class="e-form-label">Code</label>
+                <SfAutoComplete TItem="Product" @bind-Value="@(SelectedProduct.Code)" TValue="string" DataSource="@Products">
+                    <AutoCompleteEvents TItem="Product" TValue="string" ValueChange="@OnValueChange"></AutoCompleteEvents>
+                    <AutoCompleteFieldSettings Value="Code"></AutoCompleteFieldSettings>
+                </SfAutoComplete>
+            </div>
+            <div class="form-group">
+                <label class="e-form-label">Description</label>
+                <SfAutoComplete TItem="Product" @bind-Value="@(SelectedProduct.Description)" TValue="string" DataSource="@Products">
+                    <AutoCompleteEvents TItem="Product" TValue="string" ValueChange="@OnValueChange"></AutoCompleteEvents>
+                    <AutoCompleteFieldSettings Value="Description"></AutoCompleteFieldSettings>
+                </SfAutoComplete>
+            </div>
+            @if (SelectedProduct.Type == ProductType.SageProduct)
+            {
+                <div class="form-group">
+                    <label class="e-form-label">Procedure</label>
+                    <SfDropDownList TValue="string" TItem="string" DataSource="Procedures" @bind-Value="NewLine.Procedure" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                        <DropDownListFieldSettings Value="Name"></DropDownListFieldSettings>
+                        <DropDownListEvents TValue="string" TItem="string" ValueChange="OnValueChangeProcedure"></DropDownListEvents>
+                    </SfDropDownList>
+                </div>
+                <div class="form-group">
+                    <label class="e-form-label">Reference</label>
+                    <SfTextBox @bind-Value="NewLine.Reference" />
+                </div>
+            }
+            <div class="form-group">
+                <label class="e-form-label">Quantity</label>
+                <SfNumericTextBox CssClass="me-1" @bind-Value="NewLine.Quantity" ShowSpinButton="false" />
+            </div>
+        </FormItems>
+        <FormButtons>
+            <SfButton IsPrimary="true" typeof="submit">Add</SfButton>
+        </FormButtons>
+    </SfDataForm>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+
+<style>
+    .e-grid .e-gridcontent .e-rowcell.error {
+        color: red;
+    }
+
+    .e-grid .e-gridcontent .e-rowcell.posted {
+        color: black;
+        background-color: darkgray;
+    }
+
+    #target {
+        position: relative;
+        height: 550px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int ID { get; set; }
+
+    List<ImportLine> theJobCardLines { get; set; }
+    ImportLine SelectedImportLine { get; set; }
+    ImportHeader theJobCard { get; set; }
+    SfGrid<ImportLine> Grid;
+    List<Product> Products { get; set; }
+    Product? SelectedProduct { get; set; }
+    List<string> Procedures { get; set; }
+
+    SfToast? Toast;    
+    private ToastOptions Options = new();
+
+    bool ToolBarDisabled { get; set; } = true;
+    bool ToolBarPriceDisabled { get; set; } = true;
+    bool IsAddLineVisible { get; set; } = false;
+    bool IsUpoadVisible { get; set; } = false;
+    bool SpinnerVisible { get; set; }
+    bool ProcessingSpinnerVisible { get; set; }
+    bool isChecked { get; set; }
+
+    ExcelFile? NewLine { get; set; }
+    string SelectedProcedure { get; set; } = "";
+    string Reference { get; set; } = "";
+    decimal Quantity { get; set; }
+
+
+    protected override async Task OnParametersSetAsync()
+    {
+        theJobCardLines = await sageService.GetImportLinesByHeaderID(ID);
+        theJobCard = await sageService.GetImportHeaderByID(ID);
+        Products = await sageService.GetAllProducts();
+        Procedures = await sageService.GetProcedures();
+    }
+
+    public async Task ToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "UseEVOPrice")
+        {
+            await sageService.UserEvoPrice(SelectedImportLine.ID, SelectedImportLine.EvoPrice);
+            await LoadLines();
+        }
+        if (args.Item.Id == "Upload")
+        {
+            IsUpoadVisible = true;
+        }
+        if (args.Item.Id == "Add")
+        {
+            NewLine = new ExcelFile();  
+            SelectedProduct = new Product();
+            IsAddLineVisible = true;
+        }
+        if (args.Item.Id == "Delete")
+        {
+            if (!await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this line?"))
+            {
+                return;
+            }
+            await sageService.DeleteImportLinesByID(SelectedImportLine.ID);
+            await LoadLines();
+
+        }
+        if (args.Item.Id == "Clear")
+        {
+            if (!await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete all lines?"))
+            {
+                return;
+            }
+            await sageService.DeleteImportLinesByHeaderID(ID);
+            await LoadLines();
+        }
+
+    }
+
+    public void RowSelectHandler(RowSelectEventArgs<ImportLine> args)
+    {
+        SelectedImportLine = args.Data;
+        if (args.Data.JCLine==0)
+        {
+            ToolBarPriceDisabled = false;
+        }
+        else
+        {
+            ToolBarPriceDisabled = true;
+        }
+        ToolBarDisabled = false;
+    }
+
+    public void QueryCellInfoHandler(QueryCellInfoEventArgs<ImportLine> args)
+    {
+        if (Math.Round(args.Data.EvoPrice, 2) != Math.Round(args.Data.ExcelPrice,2))
+        {
+            args.Cell.AddClass(new string[] { "error" });
+        }
+        if(args.Data.JCLine!=0)
+        {
+            args.Cell.AddClass(new string[] { "posted" });
+        }
+    }
+
+    private async Task OnChange(UploadChangeEventArgs args)
+    {
+        IsUpoadVisible = false;
+        SpinnerVisible = true;
+        foreach (var file in args.Files)
+        {
+            var rootpath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+            var path = rootpath + "\\" +  DateTime.Now.Ticks + " - " + file.FileInfo.Name;
+            FileStream filestream = new FileStream(path, FileMode.Create, FileAccess.Write);
+            await file.File.OpenReadStream(long.MaxValue).CopyToAsync(filestream);
+            filestream.Close();
+
+            await  ProcessFile(path);
+
+            await LoadLines();
+        }  
+        SpinnerVisible = false;
+    }
+
+    async Task ProcessFile(string sfilename)
+    {
+        List<ExcelFile> importLines = new List<ExcelFile>();
+        using (ExcelEngine excelEngine = new ExcelEngine())
+        {
+            IApplication application = excelEngine.Excel;
+            application.DefaultVersion = ExcelVersion.Xlsx;
+            FileStream fileStream = new FileStream(sfilename, FileMode.Open, FileAccess.Read);
+            IWorkbook workbook = application.Workbooks.Open(fileStream);
+            IWorksheet worksheet = workbook.Worksheets[0];
+
+            var rng = worksheet.UsedRange;
+
+            Dictionary<string, string> mappingProperties = new Dictionary<string, string>();
+            mappingProperties.Add("Item No", "ItemNumber");
+            mappingProperties.Add("Description", "Description");
+            mappingProperties.Add("Description 2", "Description2");
+            mappingProperties.Add("Reference", "Reference");
+            mappingProperties.Add("Qty", "Quantity");
+            mappingProperties.Add("Procedure", "Procedure");
+            mappingProperties.Add("Price", "Price");
+            importLines = worksheet.ExportData<ExcelFile>(3, 1, rng.Rows.Count(), 7, mappingProperties);
+        }
+
+        bool resp =  await sageService.BulkInsertLine(ID, importLines);
+        if (resp)
+        {
+            Options = new ToastOptions
+                {
+                    Title = "success",
+                    Content = "Upload succeeded",
+                    Css = "e-toast-success",
+                    Timeout = 5000
+                };
+
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+        else
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Error",
+                    Content = "Upload failed",
+                    Css = "e-toast-danger",
+                    Timeout = 5000
+                };
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+
+
+    }
+
+    public void OnValueChange(ChangeEventArgs<string, Product> args)
+    {
+        SelectedProduct = args.ItemData;
+        if (SelectedProduct == null)
+        {
+            NewLine.ItemNumber = "";
+            NewLine.Description = "";
+            return;
+        }
+        NewLine.ItemNumber = SelectedProduct.Code;
+        NewLine.Description = SelectedProduct.Description;
+    }
+
+    public void OnValueChangeProcedure(ChangeEventArgs<string, string> args)
+    {
+        SelectedProcedure = args.Value;
+    }
+
+    async Task PostToSage()
+    {
+        List<ImportLine> ErrorLines = await sageService.GetErrorImportLinesByHeaderID(ID);
+        if (ErrorLines.Any())
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Error",
+                    Content = "There are outstanding errors!",
+                    Css = "e-toast-danger",
+                    Timeout = 5000
+                };
+
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+        ProcessingSpinnerVisible = true;
+        PostToSageResult ret = await sageService.PostToSage(ID);
+        ProcessingSpinnerVisible = false;
+        if (ret.Success )
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Success",
+                    Content = $"{ret.JobCode} created Successfully",
+                    Css = "e-toast-success",
+                    Timeout = 10000
+                };
+
+            theJobCardLines = await sageService.GetImportLinesByHeaderID(ID);
+            theJobCard = await sageService.GetImportHeaderByID(ID);
+
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+        else
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Error",
+                    Content = ret.Message,
+                    Css = "e-toast-danger",
+                    Timeout = 5000
+                };
+
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+
+    }
+
+    async Task PostCustom()
+    {
+        ProcessingSpinnerVisible = true;
+        await sageService.PostCustomToSage(ID);
+        ProcessingSpinnerVisible = false;
+        Options = new ToastOptions
+            {
+                Title = "Success",
+                Content = $"Custom Fields Updated!",
+                Css = "e-toast-success",
+                Timeout = 10000
+            };
+
+        StateHasChanged();
+        await Toast!.ShowAsync();
+        return;
+    }
+
+    async Task PostAdditionsToSage()
+    {
+        ProcessingSpinnerVisible = true;
+        PostToSageResult ret = await sageService.PostAdditionsToSage(ID);
+        ProcessingSpinnerVisible = false;
+        if (ret.Success)
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Success",
+                    Content = $"Additions created Successfully",
+                    Css = "e-toast-success",
+                    Timeout = 10000
+                };
+
+            theJobCardLines = await sageService.GetImportLinesByHeaderID(ID);
+            theJobCard = await sageService.GetImportHeaderByID(ID);
+
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+        else
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Error",
+                    Content = ret.Message,
+                    Css = "e-toast-danger",
+                    Timeout = 5000
+                };
+
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+    }
+
+    public async void SubmitHandler()
+    {
+        bool resp = false;
+        if (SelectedProduct!.Type == ProductType.MakeUpProduct)
+        {
+            await ExplodeMakeUpProductsAndAddLines(SelectedProduct.Code,"",NewLine.Quantity);
+            resp = true;
+        }
+        else
+        {
+            NewLine!.Price = Convert.ToDecimal(await sageService.GetEvoPrice(SelectedProduct!.StockLink));
+
+            resp = await sageService.InsertLine(ID, NewLine);
+        }
+
+        if (resp)
+        {
+            Options = new ToastOptions
+                {
+                    Title = "success",
+                    Content = "Line(s) added succeeded",
+                    Css = "e-toast-success",
+                    Timeout = 5000
+                };
+            StateHasChanged();
+            await Toast!.ShowAsync();
+
+        }
+        else
+        {
+            Options = new ToastOptions
+                {
+                    Title = "Error",
+                    Content = "Line(s) adding failed",
+                    Css = "e-toast-danger",
+                    Timeout = 5000
+                };
+            StateHasChanged();
+            await Toast!.ShowAsync();
+            return;
+        }
+
+        IsAddLineVisible = false;
+        await LoadLines();
+    }
+
+    private async void onChangeCheckBox(Microsoft.AspNetCore.Components.ChangeEventArgs args)
+    {
+        isChecked = Convert.ToBoolean (args.Value);
+        await LoadLines();
+    }
+
+    async Task LoadLines()
+    {
+        if (isChecked)
+        {
+            theJobCardLines = await sageService.GetErrorImportLinesByHeaderID(ID);
+        }
+        else
+        {
+            theJobCardLines = await sageService.GetImportLinesByHeaderID(ID);
+        }
+        StateHasChanged();
+    }
+
+    async Task ExplodeMakeUpProductsAndAddLines(string Code,string Parent,decimal Qty)
+    {
+        Product productMakeup = await sageService.GetAllProductsByCode(Code);
+        List<MakeUpProductComponents> comps = await sageService.GetMakeUpProductComponents(productMakeup.StockLink);
+
+        foreach (MakeUpProductComponents comp in comps)
+        {
+            Product pm = await sageService.GetAllProductsByCode(comp.Code);
+            if (pm!.Type == ProductType.MakeUpProduct)
+            {
+                await ExplodeMakeUpProductsAndAddLines(pm.Code, Code, Convert.ToDecimal(comp.Quantity) * Qty);
+            }
+            else
+            {
+                ExcelFile excel = new ExcelFile();
+                excel.ItemNumber = comp.Code;
+                excel.Description = comp.Description;
+                excel.Reference = comp.Reference;
+                excel.Quantity = Convert.ToDecimal(comp.Quantity) * Qty;
+                excel.Procedure = comp.Procedure;
+                if(comp.UseSagePrice)
+                {
+                    excel.Price = Convert.ToDecimal(await sageService.GetEvoPrice(comp.StockLink));
+                }
+                else
+                {
+                    excel.Price = Convert.ToDecimal(comp.Price);
+                }
+                excel.ParentCode = Code;
+                excel.ParentsParentCode = Parent;
+                await sageService.InsertLine(ID, excel);
+            }
+        }
+    }
+}

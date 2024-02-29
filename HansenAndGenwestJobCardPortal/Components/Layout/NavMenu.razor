@@ -1,0 +1,136 @@
+﻿@rendermode InteractiveServer
+@using Syncfusion.Blazor.Navigations
+@implements IDisposable
+
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="control-container">
+    <SfAppBar ColorMode="AppBarColor.Primary" CssClass="custom-appbar">
+        <a class="navbar-brand" href="https://hansen-genwest.co.za/">
+            <img src="/images/hansen-genwest-website-logo.png" width="100" alt="" />
+        </a>
+        <SfMenu TValue="MenuItem" ShowItemOnClick="true">
+            <MenuItems>
+                <AuthorizeView Roles="Administrator">
+                    <Authorized>
+                        <MenuItem Text="Master Data">
+                        <MenuItems>
+                            <MenuItem Text="Clients"></MenuItem>
+                            <MenuItem Text="Products"></MenuItem>
+                            <MenuItem Separator="true"></MenuItem>
+                            <MenuItem Text="Make up Products"></MenuItem>
+                            <MenuItem Separator="true"></MenuItem>
+                            <MenuItem Text="Users"></MenuItem>
+
+                        </MenuItems>
+                    </MenuItem>
+                    </Authorized>
+                </AuthorizeView>
+                <AppBarSpacer></AppBarSpacer>
+                <AuthorizeView>
+                    <Authorized>
+                        <MenuItem Text="JobCards">                           
+                        </MenuItem>
+                    </Authorized>
+                </AuthorizeView>              
+            </MenuItems>
+            <MenuEvents TValue="MenuItem"  ItemSelected="itemSelected"></MenuEvents>
+        </SfMenu>
+        <AppBarSpacer></AppBarSpacer>
+         <SfMenu TValue="MenuItem" >
+            <AuthorizeView>
+                <Authorized>
+                    <SfButton CssClass="e-inherit" Content="" OnClick="GotoManage">Hello, @context.User.Identity?.Name!</SfButton>                  
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                        <SfButton CssClass="e-inherit" Content="Logout"></SfButton>                               
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <SfButton CssClass="e-inherit" Content="Login" OnClick="GotoLogin"></SfButton>
+                </NotAuthorized>
+            </AuthorizeView>
+            
+         </SfMenu>      
+    </SfAppBar>
+</div>
+
+    <style>
+        .control-container .e-appbar.custom-appbar {
+            background: #111e90;
+            height: 70px;
+        }
+
+        .e-menu-container {
+            background-color: #111e90;  
+        }
+
+        .e-menu-container .e-menu .e-menu-item {
+            color: white;
+        }
+
+        .e-menu-container .e-ul .e-menu-item.e-focused {
+            background-color: #b3d9ff;                
+        }
+    </style>
+
+@code {
+    private string? currentUrl;
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    private void itemSelected(MenuEventArgs<MenuItem> args)
+    {
+        var selectedItem = args.Item.Text;
+        switch (selectedItem)
+        {
+            case "JobCards":
+                NavigationManager.NavigateTo("/JobCards", false);
+                break;
+            case "Users":
+                NavigationManager.NavigateTo("/Users", false);
+                break;
+            case "Clients":
+                NavigationManager.NavigateTo("/Clients", false);
+                break;
+            case "Products":
+                NavigationManager.NavigateTo("/Products", false);
+                break;
+            case "Make up Products":
+                NavigationManager.NavigateTo("/ProductMakeup", false);
+                break;
+        }
+    }
+
+    void GotoLogin()
+    {
+        NavigationManager.NavigateTo("/Account/Login", true);
+    }
+
+    void GotoLogout()
+    {
+        NavigationManager.NavigateTo("/Account/Logout", true);
+    }
+
+    void GotoManage()
+    {
+        NavigationManager.NavigateTo("/Account/Manage", true);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
+

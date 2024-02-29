@@ -1,0 +1,38 @@
+﻿@page "/"
+@using System.Security.Claims
+
+@inject AuthenticationStateProvider authProvicder
+
+<PageTitle>Home</PageTitle>
+
+@if (username == "")
+{
+    <h3>Hello, Please login to continue!</h3>
+}
+else
+{
+    <h3>Hello, @username!</h3>
+
+    <p>Welcome to the Hansen and Genwest Job Card Portal.</p>
+}
+
+@code
+{
+    string username = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authProvicder.GetAuthenticationStateAsync();
+        var user = authState.User;
+       
+
+        if (user.Identity is not null && user.Identity.IsAuthenticated)
+        {
+            username = user.FindFirst(c => c.Type == ClaimTypes.Email)?.Value;           
+        }
+        else
+        {
+            
+        }
+    }
+}

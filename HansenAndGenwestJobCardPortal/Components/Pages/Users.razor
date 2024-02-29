@@ -1,0 +1,264 @@
+﻿@page "/Users"
+@rendermode @(new InteractiveServerRenderMode(false))
+
+@using Microsoft.AspNetCore.Identity
+@using Syncfusion.Blazor
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Navigations
+
+@inject UserManager<ApplicationUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+
+<PageTitle>User Management</PageTitle>
+
+<h2>User Management</h2>
+
+
+<div class="row">
+    <div class="col-6">
+        <div><b>Users</b></div>
+        <SfGrid @ref="userGrid" DataSource="@AllAppUsers" AllowSelection="true" AllowPaging="true" AllowFiltering="true" AllowSorting="true" AllowGrouping="false" EnableVirtualization="true">
+            <GridTemplates>
+                <ToolbarTemplate Context="NewContext">
+                    <SfToolbar OverflowMode="OverflowMode.MultiRow">
+                        <ToolbarEvents Clicked="ToolbarClickHandler"></ToolbarEvents>
+                        <ToolbarItems>
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Add" Text="Add" TooltipText="Add"></ToolbarItem>
+                            <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-edit" Id="Edit" Text="Edit" TooltipText="Edit" Disabled="@ToolBarDisabled"></ToolbarItem>
+                        </ToolbarItems>
+                    </SfToolbar>
+                </ToolbarTemplate>
+            </GridTemplates>
+            <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+            <GridEditSettings AllowAdding="true" AllowDeleting="true" AllowEditing="true"></GridEditSettings>
+            <GridSelectionSettings Mode="Syncfusion.Blazor.Grids.SelectionMode.Row" Type="Syncfusion.Blazor.Grids.SelectionType.Single"></GridSelectionSettings>
+            <GridEvents RowSelected="RowSelecthandler" TValue="ApplicationUser"></GridEvents>
+
+            <GridColumns>
+                <GridColumn Field="Id" HeaderText="Id"  IsPrimaryKey="true"></GridColumn>
+                <GridColumn Field="UserName" HeaderText="User Name"></GridColumn>
+            </GridColumns>
+        </SfGrid>
+    </div>
+    @if (SelectedApplicationUser!=null)
+    {
+        <div class="col-6">
+            <div><b>Assigned Roles</b></div>
+            <SfGrid @ref="userRolesGrid"  DataSource="@SelectedApplicationUserRoles" AllowSelection="true" AllowPaging="true" AllowFiltering="true" AllowSorting="true" AllowGrouping="false">
+                <GridTemplates>
+                    <ToolbarTemplate Context="NewContext">
+                        <SfToolbar OverflowMode="OverflowMode.MultiRow">
+                            <ToolbarEvents Clicked="ToolbarClickHandler2"></ToolbarEvents>
+                            <ToolbarItems>
+                                <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Assign" Text="Assign" TooltipText="Assign"></ToolbarItem>
+                                <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-edit" Id="Retract" Text="Retract" TooltipText="Retract" Disabled="@ToolBarDisabled2"></ToolbarItem>
+                            </ToolbarItems>
+                        </SfToolbar>
+                    </ToolbarTemplate>
+                </GridTemplates>
+                <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+                <GridEditSettings AllowAdding="true" AllowDeleting="true" AllowEditing="true"></GridEditSettings>
+                <GridSelectionSettings Mode="Syncfusion.Blazor.Grids.SelectionMode.Row" Type="Syncfusion.Blazor.Grids.SelectionType.Single"></GridSelectionSettings>
+                <GridEvents RowSelected="RowSelecthandler2" TValue="IdentityRole"></GridEvents>
+
+                <GridColumns>
+                    <GridColumn Field="Id" HeaderText="Id" IsPrimaryKey="true"></GridColumn>
+                    <GridColumn Field="Name" HeaderText="Role Name"></GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </div>
+    }
+ </div>
+
+<SfDialog ID="dialogAddUser" Width="500px" IsModal="true" @bind-Visible="@IsVisibleAddUser">
+    <DialogTemplates>
+        <Header>Add / Edit User</Header>
+        <Content> 
+            <div>
+                <SfTextBox @bind-Value="@SelectedApplicationUser!.Email" Placeholder ="User Name / Email"  FloatLabelType="FloatLabelType.Always"></SfTextBox>
+                <SfTextBox @bind-Value="@Password" Placeholder="Password" FloatLabelType="FloatLabelType.Always" Type="InputType.Password" Autocomplete="AutoComplete.Off"></SfTextBox>
+                <SfTextBox @bind-Value="@verifyPassword" Placeholder="Verify Password" FloatLabelType="FloatLabelType.Always" Type="InputType.Password" Autocomplete="AutoComplete.Off"></SfTextBox>
+            </div>
+        </Content>       
+ 
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Add" IsPrimary="true" OnClick="@CloseDialogAdd" />
+        <DialogButton Content="Cancel" IsPrimary="false" OnClick="@CloseDialog" />
+    </DialogButtons>
+</SfDialog>
+
+<SfDialog ID="dialog" Width="500px" IsModal="true" @bind-Visible="@IsVisibleAddRoleToUser">    
+    <DialogTemplates>
+        <Header>Add Role to User</Header>
+        <Content>
+            <SfListBox @ref="ListBoxObj" TValue="List<IdentityRole>" DataSource="@RolesAvailableToAssign" TItem="IdentityRole" @bind-Value="@SelectedRolesToAssign">
+                <ListBoxFieldSettings Text="Name" Value="Id" />
+                <ListBoxSelectionSettings ShowCheckbox="true" ShowSelectAll="true"></ListBoxSelectionSettings>
+            </SfListBox>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Assign" IsPrimary="true" OnClick="@CloseDialogAddRoleToUserAssign" />
+        <DialogButton Content="Cancel" IsPrimary="false" OnClick="@CloseDialogAddRoleToUser" />
+    </DialogButtons>  
+</SfDialog>
+@code {
+    List<ApplicationUser> AllAppUsers = new List<ApplicationUser>();
+    List<IdentityRole> AllAppRoles = new List<IdentityRole>();
+    List<IdentityRole>? SelectedApplicationUserRoles { get; set; }
+    List<IdentityRole>? RolesAvailableToAssign { get; set; }
+    List<IdentityRole>? SelectedRolesToAssign { get; set; }
+
+    SfGrid<ApplicationUser>? userGrid { get; set; }
+    SfGrid<IdentityRole>? userRolesGrid { get; set; }
+    SfListBox<List<IdentityRole>, IdentityRole>? ListBoxObj;
+
+    ApplicationUser? SelectedApplicationUser { get; set; }
+    IdentityRole? SelectedIdentityRole { get; set; }
+
+
+    bool ToolBarDisabled = true;
+    bool ToolBarDisabled2 = true;
+    bool IsVisibleAddUser = false;
+    bool IsVisibleAddRoleToUser = false;
+
+
+    string Password = "";
+    string verifyPassword = "";
+
+    protected override async Task OnInitializedAsync()
+    { 
+        string[] roleNames = { "Administrator", "Sales_Representative ", "Engineer", "Buyer", "Customer" };
+        foreach (var roleName in roleNames)
+        {
+            var roleExist = await _RoleManager.RoleExistsAsync(roleName);
+            if (!roleExist)
+            {
+                await _RoleManager.CreateAsync(new IdentityRole(roleName));
+            }
+        }
+        var user = await _UserManager.FindByEmailAsync("richard@webbis.co.za");
+        if (user != null)
+        {
+            await _UserManager.AddToRoleAsync(user, "Administrator");
+        }
+
+        AllAppUsers = _UserManager.Users.OrderBy(x => x.UserName).ToList();
+        AllAppRoles = _RoleManager.Roles.OrderBy(x => x.Name).ToList();
+    }
+
+    public async Task RowSelecthandler(RowSelectEventArgs<ApplicationUser> Args)
+    {
+        if (Args.Data == null)
+        {           
+            return;
+        }
+        SelectedApplicationUser = Args.Data;
+        ToolBarDisabled = false;
+        var user = await _UserManager.FindByNameAsync(SelectedApplicationUser.UserName!);
+        if (user == null)
+        {
+            return;
+        }
+        await GetUserRoles();
+    }
+
+    public async Task RowSelecthandler2(RowSelectEventArgs<IdentityRole> Args)
+    {
+        SelectedIdentityRole = Args.Data;
+        ToolBarDisabled2 = false;
+    }
+
+    public async Task ToolbarClickHandler(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Add")
+        {
+            SelectedApplicationUser = new ApplicationUser();
+            Password = "";
+            verifyPassword = "";
+            IsVisibleAddUser = true;
+            StateHasChanged();
+        }
+        if (args.Item.Id == "Edit")
+        {
+            IsVisibleAddUser = true;
+        }
+    }
+
+    public async Task ToolbarClickHandler2(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Assign")
+        {
+            RolesAvailableToAssign = AllAppRoles.Except(SelectedApplicationUserRoles!).ToList();
+            IsVisibleAddRoleToUser = true;   
+        }
+        if (args.Item.Id == "Retract")
+        {
+            var UserResult = await _UserManager.IsInRoleAsync(SelectedApplicationUser!, SelectedIdentityRole!.Name!);
+            if (UserResult)
+            {
+                await _UserManager.RemoveFromRoleAsync(SelectedApplicationUser!, SelectedIdentityRole!.Name!);
+            }
+
+            IsVisibleAddRoleToUser = false;
+            await GetUserRoles();
+            StateHasChanged();
+        }
+    }
+
+    private void CloseDialogAddRoleToUser()
+    {
+        IsVisibleAddRoleToUser = false;
+    }
+
+    private async void CloseDialogAddRoleToUserAssign()
+    {
+        foreach (IdentityRole ir in SelectedRolesToAssign!)
+        {
+            await _UserManager.AddToRoleAsync(SelectedApplicationUser!, ir.Name!);
+        }
+        IsVisibleAddRoleToUser = false;       
+        await GetUserRoles();        
+        StateHasChanged();
+    }
+
+    async Task GetUserRoles ()
+    {
+        SelectedApplicationUserRoles = new List<IdentityRole>();
+        foreach (IdentityRole ir in AllAppRoles)
+        {
+            var UserResult = await _UserManager.IsInRoleAsync(SelectedApplicationUser!, ir.Name!);
+            if (UserResult)
+            {
+                SelectedApplicationUserRoles.Add(ir);
+            }
+        }
+        RolesAvailableToAssign = AllAppRoles.Except(SelectedApplicationUserRoles!).ToList();
+    }
+
+    void CloseDialog()
+    {
+        IsVisibleAddUser = false;
+    }
+
+    async void CloseDialogAdd()
+    {
+        IdentityResult CreateResult;
+        var user = await _UserManager.FindByEmailAsync(SelectedApplicationUser!.Email!);
+        if (user != null)
+        {
+            CreateResult = await _UserManager.UpdateAsync(SelectedApplicationUser!);
+        }
+        else
+        {
+            if (Password == verifyPassword)
+            {
+                SelectedApplicationUser!.UserName = SelectedApplicationUser.Email;
+                CreateResult = await _UserManager.CreateAsync(SelectedApplicationUser, Password);
+            }
+        }
+        AllAppUsers = _UserManager.Users.OrderBy(x => x.UserName).ToList();
+        IsVisibleAddUser = false;
+    }
+}
