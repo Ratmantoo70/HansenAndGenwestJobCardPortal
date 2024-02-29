@@ -1,6 +1,8 @@
 ﻿@page "/Users"
 @rendermode @(new InteractiveServerRenderMode(false))
 
+@attribute [Authorize(Roles = "Administrator")]
+
 @using Microsoft.AspNetCore.Identity
 @using Syncfusion.Blazor
 @using Syncfusion.Blazor.Grids
@@ -8,6 +10,7 @@
 
 @inject UserManager<ApplicationUser> _UserManager
 @inject RoleManager<IdentityRole> _RoleManager
+@inject NavigationManager NavMan
 
 <PageTitle>User Management</PageTitle>
 
@@ -174,11 +177,13 @@
     {
         if (args.Item.Id == "Add")
         {
-            SelectedApplicationUser = new ApplicationUser();
-            Password = "";
-            verifyPassword = "";
-            IsVisibleAddUser = true;
-            StateHasChanged();
+            // SelectedApplicationUser = new ApplicationUser();
+            // Password = "";
+            // verifyPassword = "";
+            // IsVisibleAddUser = true;
+            // StateHasChanged();
+            var uri = NavMan.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = "/Users" });
+            NavMan.NavigateTo(uri);
         }
         if (args.Item.Id == "Edit")
         {

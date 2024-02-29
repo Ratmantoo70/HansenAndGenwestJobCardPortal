@@ -1,6 +1,8 @@
 ﻿@page "/ProductMakeup"
 @rendermode @(new InteractiveServerRenderMode(false))
 
+@attribute [Authorize(Roles = "Administrator")]
+
 @inject ISageInterface SageService
 @inject IJSRuntime JsRuntime
 
@@ -90,7 +92,7 @@
 <SfDialog Target="#target"
           IsModal="true"
           ShowCloseIcon="true"
-          @bind-Visible="@IsVisible2"
+          @bind-Visible="@IsVisible"
           Width="500px">
     <DialogTemplates>
         <Header>Add Job Card </Header>

@@ -1,6 +1,8 @@
 ﻿@page "/Products"
 @attribute [StreamRendering]
 
+@attribute [Authorize(Roles = "Administrator")]
+
 @inject ISageInterface SageService 
 
 <PageTitle>Products</PageTitle>

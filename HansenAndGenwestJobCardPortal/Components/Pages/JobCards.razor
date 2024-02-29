@@ -1,6 +1,8 @@
 ﻿@page "/JobCards"
 @rendermode @(new InteractiveServerRenderMode(false))
 
+@attribute [Authorize]
+
 @using Syncfusion.Blazor.Grids
 @using Syncfusion.Blazor.Navigations
 @using System.ComponentModel

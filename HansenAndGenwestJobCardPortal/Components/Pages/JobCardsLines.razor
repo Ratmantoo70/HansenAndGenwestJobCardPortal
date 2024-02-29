@@ -1,6 +1,8 @@
 ﻿@page "/JobCardsLines/{ID:int}"
 @rendermode @(new InteractiveServerRenderMode(false))
 
+@attribute [Authorize]
+
 @using Syncfusion.Blazor
 @using Syncfusion.Blazor.Grids
 @using Syncfusion.XlsIO
@@ -9,6 +11,7 @@
 @inject IJSRuntime JsRuntime
 
 @attribute [StreamRendering]
+
 
 <PageTitle>Job Card Details</PageTitle>
 

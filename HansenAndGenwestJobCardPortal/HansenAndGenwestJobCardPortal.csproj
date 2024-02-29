@@ -11,12 +11,19 @@
     <PackageReference Include="Dapper" Version="2.1.28" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="8.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
     <PackageReference Include="Syncfusion.Blazor" Version="24.2.8" />
     <PackageReference Include="Syncfusion.Blazor.Themes" Version="24.2.8" />
     <PackageReference Include="Syncfusion.XlsIO.Net.Core" Version="24.2.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="HansenAndGenwest.db">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
