@@ -19,13 +19,23 @@ namespace HansenAndGenwestJobCardPortal
             builder.Host.UseWindowsService();
             Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjHTQxAR8/V1NAaF1cWmhIfEx1RHxQdld5ZFRHallYTnNWUj0eQnxTdEFjW31YcHFXT2VeVER1WA==");
 
-            // Add services to the container.
-            builder.Services.AddRazorComponents()
-                .AddInteractiveServerComponents();
-
+            //// Add services to the container.
+            builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+           
+            builder.WebHost.UseWebRoot("wwwroot");
+            builder.WebHost.UseStaticWebAssets();
+           
             builder.Services.AddSyncfusionBlazor();
 
+			builder.Services.AddDevExpressBlazor();
+			builder.Services.AddDevExpressServerSideBlazorReportViewer();
+
+            builder.Services.Configure<DevExpress.Blazor.Configuration.GlobalOptions>(options => {
+                options.BootstrapVersion = DevExpress.Blazor.BootstrapVersion.v5;
+            });
+
             builder.Services.AddCascadingAuthenticationState();
+
             builder.Services.AddScoped<IdentityUserAccessor>();
             builder.Services.AddScoped<IdentityRedirectManager>();
             builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
@@ -39,9 +49,7 @@ namespace HansenAndGenwestJobCardPortal
                 })
                 .AddIdentityCookies();
 
-            //var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-            //builder.Services.AddDbContext<ApplicationDbContext>(options =>
-            //    options.UseSqlServer(connectionString));
+
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
             {
                 options.UseSqlite("Data Source = HansenAndGenwest.db");

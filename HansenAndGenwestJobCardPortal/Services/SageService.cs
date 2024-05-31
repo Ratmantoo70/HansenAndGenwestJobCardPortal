@@ -1,6 +1,8 @@
 ﻿using Dapper;
+using HansenAndGenwestJobCardPortal.Components.Pages;
 using HansenAndGenwestJobCardPortal.Interfaces;
 using HansenAndGenwestJobCardPortal.Models;
+using Humanizer;
 using Microsoft.Data.SqlClient;
 using Syncfusion.Blazor.Grids.Internal;
 using Syncfusion.Blazor.Kanban.Internal;
@@ -229,6 +231,40 @@ namespace HansenAndGenwestJobCardPortal.Services
                             '{excelFile.Procedure}',
                             {excelFile.Price}
                             )";
+                        try
+                        {
+                            var results = await connection.ExecuteAsync(sql, null, transaction: tran);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.ToString());
+                            tran.Rollback();
+                            return false;
+                        }
+                    }
+                    tran.Commit();
+                    return true;
+                }
+            }
+        }
+        public async Task<bool> BulkInsertLinesToMakeUpProduct(string ParentStockLink, List<ExcelFile> excelFileList)
+        {
+            using (var connection = new SqlConnection(SageConnectionString))
+            {
+                connection.Open();
+
+                using (var tran = connection.BeginTransaction())
+                {
+                   List<HansenAndGenwestJobCardPortal.Models.Product> theProducts = await GetAllProducts();
+                    foreach (var excelFile in excelFileList)
+                    {
+                        Product product = theProducts.FirstOrDefault(x => x.Code == excelFile.ItemNumber!);
+
+                        var sql = $@"INSERT INTO __MakeUpProductComponents
+                         (ParentStockLink, StockLink, Code, Description, Reference, Quantity, [Procedure], Price, UseSagePrice)
+                         VALUES ('{ParentStockLink}', '{product!.StockLink}', '{excelFile.ItemNumber}', 
+                        '{excelFile.Description}', '{excelFile.Reference}', {excelFile.Quantity}, '{excelFile.Procedure}', {excelFile.Price}, 1)";
+
                         try
                         {
                             var results = await connection.ExecuteAsync(sql, null, transaction: tran);
@@ -637,7 +673,7 @@ namespace HansenAndGenwestJobCardPortal.Services
             string JobCode = job.cJobPrefix + job.CurrentNumber.ToString("D5");
             int JCMaster = await PostJCMasterStore(0, JobCode, job, importHeader, customer);
            
-            await SetucJCADDITIONALINFORMATION(JCMaster, importHeader.ExternalOrderNumber);
+            await SetucJCADDITIONALINFORMATION(JCMaster, importHeader.JobDescription);
             await PostJCLines(JCMaster, importLines, TaxRate, importHeader);
             await SetJCNumber(JobCode, HeaderID,JCMaster);
 
@@ -711,7 +747,6 @@ namespace HansenAndGenwestJobCardPortal.Services
                     var results = await connection.ExecuteAsync(sql);                   
             }
         }
-
         public async Task DeleteMakeUpProduct(string stocklink)
         {
             using (var connection = new SqlConnection(SageConnectionString))
@@ -721,7 +756,6 @@ namespace HansenAndGenwestJobCardPortal.Services
                 var results = await connection.ExecuteAsync(sql);
             }
         }
-
         public async Task AddUpdateMakeUpProductComponent(MakeUpProductComponents makeUpProductComponent)
         {
             int useSagePrice = 0;
@@ -751,7 +785,6 @@ namespace HansenAndGenwestJobCardPortal.Services
                 }
             }
         }
-
         public async Task<Product> GetAllProductsByID(string stockLink)
         {
             using (var connection = new SqlConnection(SageConnectionString))
@@ -782,7 +815,6 @@ namespace HansenAndGenwestJobCardPortal.Services
                 return results;
             }
         }
-
         public async Task<Product> GetMakeUpProductByCode(string Code)
         {
             using (var connection = new SqlConnection(SageConnectionString))
@@ -795,13 +827,162 @@ namespace HansenAndGenwestJobCardPortal.Services
                 return results;
             }
         }
-
         public async Task DeleteMakeUpProductComponent(int ID)
         {
             using (var connection = new SqlConnection(SageConnectionString))
             {
                 var sql = @$"DELETE FROM [__MakeUpProductComponents]   WHERE [Id] ={ID}";
                 var results = await connection.ExecuteAsync(sql);
+            }
+        }
+        public async Task<List<LabourExportResult>> PostLabourToSage(List<LabourImport> labourLines)
+        {
+            string Message = "";
+            List<LabourExportResult> LERs = new List<LabourExportResult>();
+            double Price;
+            using (var connection = new SqlConnection(SageConnectionString))
+            {
+                var sql = @$"SELECT [LatestCost] FROM [_etblStockCosts]  where StockID = 13098";
+                Price = await connection.QueryFirstAsync<int>(sql);
+            }
+
+            foreach (LabourImport labourImport in labourLines)
+            {
+                int JCMaster = 0;
+                Message = "";
+                LabourExportResult ler = new LabourExportResult();
+                ler.JobNo= labourImport.JobNo;
+
+                try
+                {
+                    Message = "Job Card Not Found in Sage!";
+                    using (var connection = new SqlConnection(SageConnectionString))
+                    {
+                        var sql = @$"SELECT IdJCMaster FROM _btblJCMaster WHERE (cJobCode = 'JOB{labourImport.JobNo}')";
+                        JCMaster = await connection.QueryFirstAsync<int>(sql);
+                    }
+                    Message = "Post to Sage failed!";
+                    await PostLabourLine(JCMaster,labourImport.Procedure, labourImport.Reference, Price, labourImport.Hours);
+                    ler.Success = true;
+                    ler.Message = "Success";
+                }
+                catch
+                {
+                    ler.Success = false;
+                    ler.Message = Message;
+                }
+                LERs.Add(ler);
+            }
+
+
+            return LERs;
+        }
+
+        
+
+        public async Task PostLabourLine(int JCMaster, string Procedure, string Reference, double Price, double Quantity)
+        {
+            double TaxRate = await GetTaxRate();
+            DateTime dtNow = DateTime.Now;
+
+            using (var connection = new SqlConnection(SageConnectionString))
+            {
+                var sql = @$"DECLARE	@return_value int,
+                    		@JCTxLinesID bigint
+
+                    EXEC	@return_value = [dbo].[_bspJCTxLinesStore]
+                    		@JCTxLinesID = @JCTxLinesID OUTPUT,
+                    		@iJCMasterID = {JCMaster},
+                    		@iJobTxTpID = 9,
+                    		@iSource = 0,
+                    		@iStockID = 13098,
+                    		@iSupplierID = 0,
+                    		@iLedgerID = 0,
+                    		@cDescription = N'Labour - Standard',
+                    		@iStatus =0,
+                    		@iDuration = 0,
+                    		@dStartDate = '{dtNow.ToString("dd MMM yyyy")}',
+                    		@dEndDate = '{dtNow.ToString("dd MMM yyyy")}',
+                    		@fMainDiscount = 0,
+                    		@fUnitPriceExcl = {Price},
+                    		@fUnitPriceIncl = {Price * ((100 + TaxRate) / 100)},
+                    		@fExchangeRate = 0,
+                    		@fUnitPriceExclForeign = 0,
+                    		@fUnitPriceInclForeign = 0,
+                    		@fUnitCost = 0,
+                    		@iGrvCurrencyID = 0,
+                    		@fExchangeRateGrv = 0,
+                    		@fLineDiscount = 0,
+                    		@iTaxTypeIDInv = 1,
+                    		@fTaxRateInv = {TaxRate},
+                    		@fTransQty = {Quantity},
+                    		@fTransQtyToInvoice = 0,
+                    		@iUnitsOfMeasureStockingID = 0,
+                    		@iUnitsOfMeasureCategoryID = 0,
+                    		@iUnitsOfMeasureID = 0,
+                    		@iWarehouseID = 0,
+                    		@iPriceListNameID = 0,
+                    		@iTaxTypeIDGrv = 1,
+                    		@fTaxRateGrv = 0,
+                    		@fTaxAmountGrv = 0,
+                    		@fTaxAmountGrvForeign = 0,
+                    		@iEmployeeID = 0,
+                    		@fBudgetUnitPriceExcl = {Price},
+                    		@fBudgetUnitPriceIncl = {Price * ((100 + TaxRate) / 100)},
+                    		@fBudgetUnitPriceExclForeign = 0,
+                    		@fBudgetUnitPriceInclForeign = 0,
+                    		@fBudgetUnitCost = 0,
+                    		@fBudgetLineTotalExcl = {Price * Quantity},
+                    		@fBudgetLineTotalIncl = {Price * Quantity * ((100 + TaxRate) / 100)},
+                    		@fBudgetLineTotalExclForeign =  {Price * Quantity},
+                    		@fBudgetLineTotalInclForeign = {Price * Quantity * ((100 + TaxRate) / 100)},
+                    		@fBudgetLineTotalTaxAmountInv =  {(Price * Quantity * ((100 + TaxRate) / 100)) - (Price * Quantity)},
+                    		@fBudgetLineTotalTaxAmountInvForeign = {(Price * Quantity * ((100 + TaxRate) / 100)) - (Price * Quantity)},
+                    		@fBudgetLineTotalTaxAmountGrv = 0,
+                    		@fBudgetLineTotalTaxAmountGrvForeign = 0,
+                    		@fBudgetLineTotalCost = 0,
+                    		@fLineTotalExcl =   {Price * Quantity},
+                    		@fLineTotalIncl =  {Price * Quantity * ((100 + TaxRate) / 100)},
+                    		@fLineTotalExclForeign = 0,
+                    		@fLineTotalInclForeign = 0,
+                    		@fLineTotalTaxAmountInv = {(Price * Quantity * ((100 + TaxRate) / 100)) - (Price * Quantity)},
+                    		@fLineTotalTaxAmountInvForeign = 0,
+                    		@fLineTotalExclToInvoice = 0,
+                    		@fLineTotalInclToInvoice = 0,
+                    		@fLineTotalExclForeignToInvoice = 0,
+                    		@fLineTotalInclForeignToInvoice = 0,
+                    		@fLineTotalTaxAmountInvToInvoice = 0,
+                    		@fLineTotalTaxAmountInvForeignToInvoice = 0,
+                    		@fLineTotalCost = 0,
+                    		@bPosted = 1,
+                    		@bInvoiced = 0,
+                    		@iJobNumID = 0,
+                    		@cinvNumber = N'',
+                    		@cUserName = N'',
+                    		@iJobStockGroupID = 0,
+                    		@iSNGroupID = 0,
+                    		@cLineNotes = N'',
+                    		@iInvNumID = 0,
+                    		@bPicked = 0,
+                    		@iLineRepID = 0,
+                    		@iLineProjectID = 0,
+                    		@ChargeCom = 0,
+                    		@iMFPID = null,
+                    		@iLotID = 0,
+                    		@Reference = N'{Reference}',
+                    		@iInvSettlementTermsID = 0,
+                    		@iAPSettlementTermsID = 0,
+                    		@iEUNoTCID = 0,
+                    		@UpdateWIPQty = null,
+                    		@iSNInvoicedGroupID = 0,
+                    		@iSNToInvoiceGroupID = 0,
+                    		@fTransQtyAvailable =  {Quantity},
+                    		@cLineUserFields = N'',
+                    		@iLineID = 1
+
+                    SELECT	@JCTxLinesID as N'@JCTxLinesID'";
+
+                int JCLine = await connection.QueryFirstAsync<int>(sql);                
             }
         }
     }

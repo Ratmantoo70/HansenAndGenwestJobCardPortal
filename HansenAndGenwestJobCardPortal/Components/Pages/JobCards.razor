@@ -6,6 +6,7 @@
 @using Syncfusion.Blazor.Grids
 @using Syncfusion.Blazor.Navigations
 @using System.ComponentModel
+@using Syncfusion.XlsIO
 
 @inject ISageInterface sageService
 @inject NavigationManager navMan
@@ -15,6 +16,18 @@
 <PageTitle>Imported Job Cards</PageTitle>
 
 <h2>Imported Job Cards</h2>
+
+<SfToast @ref="Toast" Timeout="@Options.Timeout" CssClass="@Options.Css" ShowCloseButton="true">
+    <ToastTemplates>
+        <Title>
+            @Options.Title
+        </Title>
+        <Content>
+            @Options.Content
+        </Content>
+    </ToastTemplates>
+    <ToastPosition X="Center" Y="Bottom"></ToastPosition>
+</SfToast>
 
 <div id="target">
     <SfGrid @ref="theGrid" DataSource="@theJobCards" AllowFiltering="true" EnableVirtualization="true" Height="600">
@@ -26,6 +39,7 @@
                         <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-add" Id="Add" Text="Add" TooltipText="Add"></ToolbarItem>
                         <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-edit" Id="Edit" Text="View" TooltipText="View" Disabled="@ToolBarDisabled"></ToolbarItem>
                         <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-delete" Id="Delete" Text="Delete" TooltipText="Delete" Disabled="@DeleteDisabled"></ToolbarItem>
+                        <ToolbarItem Type="@ItemType.Button" PrefixIcon="e-upload-1" Id="Upload" Text="Upload Labour" TooltipText="Upload Labour"></ToolbarItem>
                     </ToolbarItems>
                 </SfToolbar>
             </ToolbarTemplate>
@@ -98,23 +112,51 @@
     </DialogTemplates>
 </SfDialog>
 
+<SfDialog Target="#container" IsModal="true" AllowPrerender="false" ShowCloseIcon="true" @bind-Visible="@IsUpoadVisible" Width="500px">
+    <DialogTemplates>
+        <Header> Upload Labour from Excel</Header>
+        <Content>
+            <SfUploader ID="UploadFiles" AllowMultiple=false>
+                <UploaderEvents ValueChange="@OnChange"></UploaderEvents>
+            </SfUploader>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+<SfDialog Target="#container" IsModal="true" AllowPrerender="false" ShowCloseIcon="true" @bind-Visible="@IsUpoadResultVisible" Width="500px">
+    <DialogTemplates>
+        <Header> Upload Result</Header>
+        <Content>
+            <SfGrid DataSource="LabourUploadResult"></SfGrid>
+        </Content>
+    </DialogTemplates>
+</SfDialog>
+
+<SfSpinner @bind-Visible="@SpinnerVisible" Label="Loading...." CssClass="e-spin-overlay" Size="50">
+</SfSpinner>
+
 @code {
 
     List<ImportHeader>? theJobCards { get; set; }
     ImportHeader? SeletcedImportHeader { get; set; }
     SfGrid<ImportHeader>? theGrid;
-    List<SageClient> theClients { get; set; }
+    List<SageClient>? theClients { get; set; }
+    List<LabourExportResult> LabourUploadResult { get; set; } = new List<LabourExportResult>();
     bool ToolBarDisabled = true;
-    bool DeleteDisabled { get; set; } = true;    
-    bool IsVisible { get; set; } = false;
+    bool DeleteDisabled  = true;    
+    bool IsVisible  = false;
+    bool IsUpoadVisible  = false;
+    bool IsUpoadResultVisible = false;
+    bool SpinnerVisible = false;
+
+    SfToast? Toast;
+    private ToastOptions Options = new();
 
     protected override async Task OnInitializedAsync()
     { 
         theJobCards = await sageService.GetImportHeaders();
         theClients = await sageService.GetSageClients();
     }
-
-
 
     public void OnValueChange(ChangeEventArgs<string, SageClient> args)
     {
@@ -159,14 +201,18 @@
         }
         if (args.Item.Id == "Edit")
         {
-            navMan.NavigateTo($"/JobCardsLines/{SeletcedImportHeader.ID}");
+            navMan.NavigateTo($"/JobCardsLines/{SeletcedImportHeader!.ID}");
         }
         if (args.Item.Id == "Delete")
         {
-            await sageService.DeleteImportHeaderByHeaderID(SeletcedImportHeader.ID);
+            await sageService.DeleteImportHeaderByHeaderID(SeletcedImportHeader!.ID);
             await sageService.DeleteImportLinesByHeaderID(SeletcedImportHeader.ID);
             theJobCards = await sageService.GetImportHeaders();
             StateHasChanged();
+        }
+        if (args.Item.Id == "Upload")
+        {
+            IsUpoadVisible = true;
         }
     }
 
@@ -176,5 +222,75 @@
         IsVisible = false;
         theJobCards = await sageService.GetImportHeaders();
         StateHasChanged();
+    }
+
+    private async Task OnChange(UploadChangeEventArgs args)
+    {
+        IsUpoadVisible = false;
+        SpinnerVisible = true;
+        foreach (var file in args.Files)
+        {
+            var rootpath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+            var path = rootpath + "\\" + DateTime.Now.Ticks + " - " + file.FileInfo.Name;
+            FileStream filestream = new FileStream(path, FileMode.Create, FileAccess.Write);
+            await file.File.OpenReadStream(long.MaxValue).CopyToAsync(filestream);
+            filestream.Close();
+
+            try
+            {
+                await ProcessFile(path);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+        theJobCards = await sageService.GetImportHeaders();
+        SpinnerVisible = false;
+
+    }
+
+    async Task ProcessFile(string sfilename)
+    {
+        List<LabourImport> importLines = new List<LabourImport>();
+        using (ExcelEngine excelEngine = new ExcelEngine())
+        {
+            IApplication application = excelEngine.Excel;
+            application.DefaultVersion = ExcelVersion.Xlsx;
+            FileStream fileStream = new FileStream(sfilename, FileMode.Open, FileAccess.Read);
+            IWorkbook workbook = application.Workbooks.Open(fileStream);
+            IWorksheet worksheet = workbook.Worksheets[0];
+
+            var rng = worksheet.UsedRange;
+
+            for (int i = 2; i < rng.Rows.Count(); i++)
+            {
+                Console.WriteLine(i);
+                var valueA = worksheet.Range["A" + i].Value;
+                var valueB = worksheet.Range["B" + i].Value;
+                var valueC = worksheet.Range["C" + i].Value;
+                var valueD = worksheet.Range["D" + i].Value;
+                var valueE = worksheet.Range["E" + i].Value;
+
+                if (valueA!="")
+                {
+                    LabourImport li = new LabourImport
+                    {
+                        JobNo = Convert.ToInt32(valueA),
+                        ItemNo = valueB,
+                        Reference = valueC,
+                        Procedure = valueD,
+                        Hours = Convert.ToInt32(valueE)
+                    };   
+                    importLines.Add(li);
+                }                                
+            }
+        }
+
+
+        LabourUploadResult = await sageService.PostLabourToSage(importLines);
+
+        IsUpoadResultVisible = true;
+
     }
 }

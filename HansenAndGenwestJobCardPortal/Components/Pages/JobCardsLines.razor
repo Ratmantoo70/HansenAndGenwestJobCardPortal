@@ -17,19 +17,18 @@
 
 <h2>Job Card Details</h2>
 
-<SfToast @ref="Toast" Timeout="@Options.Timeout" CssClass="@Options.Css" ShowCloseButton="true">
-    <ToastTemplates>
-        <Title>
-            @Options.Title
-        </Title>
-        <Content>
-            @Options.Content
-        </Content>
-    </ToastTemplates>
-    <ToastPosition X="Center" Y="Bottom"></ToastPosition>
-</SfToast>
-
 <div id="container" class="container-fluid min-vh-100 d-flex flex-column">
+     <SfToast @ref="Toast" Timeout="@Options.Timeout" CssClass="@Options.Css" ShowCloseButton="true">
+        <ToastTemplates>
+            <Title>
+                @Options.Title
+            </Title>
+            <Content>
+                @Options.Content
+            </Content>
+        </ToastTemplates>
+        <ToastPosition X="Center" Y="Bottom"></ToastPosition>
+    </SfToast>
 
     <SfSpinner @bind-Visible="@SpinnerVisible" Label="Loading...." CssClass="e-spin-overlay" Size="50">
     </SfSpinner>
@@ -132,7 +131,7 @@
     </SfGrid>
 }
 </div>
-<SfDialog Target="#container" IsModal="true" ShowCloseIcon="true" @bind-Visible="@IsUpoadVisible" Width="500px">
+<SfDialog Target="#container" IsModal="true" AllowPrerender="false" ShowCloseIcon="true" @bind-Visible="@IsUpoadVisible" Width="500px">
     <DialogTemplates>
         <Header> Upload from Excel </Header>
         <Content> 
@@ -143,7 +142,7 @@
     </DialogTemplates>
 </SfDialog>
 
-    <SfDialog Target="#container" IsModal="true" ShowCloseIcon="true" @bind-Visible="@IsAddLineVisible" Width="500px">
+<SfDialog Target="#container" IsModal="true" AllowPrerender="false" ShowCloseIcon="true" @bind-Visible="@IsAddLineVisible" Width="500px">
     <DialogTemplates>
         <Header>Add Line </Header>
         <Content>
@@ -155,17 +154,10 @@
         <FormValidator>
             <DataAnnotationsValidator></DataAnnotationsValidator>
         </FormValidator>
-        <FormItems>
-           @*  <div class="form-group">
-                <label class="e-form-label">Product</label>
-                <SfDropDownList TValue="string" TItem="Product" DataSource="Products" @bind-Value="NewLine.Description" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
-                    <DropDownListFieldSettings Value="Description"></DropDownListFieldSettings>
-                    <DropDownListEvents TValue="string" TItem="Product" ValueChange="OnValueChange"></DropDownListEvents>
-                </SfDropDownList>
-            </div> *@
+        <FormItems>          
             <div class="form-group">
                 <label class="e-form-label">Code</label>
-                <SfAutoComplete TItem="Product" @bind-Value="@(SelectedProduct.Code)" TValue="string" DataSource="@Products">
+                <SfAutoComplete TItem="Product" @bind-Value="@(SelectedProduct!.Code)" TValue="string" DataSource="@Products">
                     <AutoCompleteEvents TItem="Product" TValue="string" ValueChange="@OnValueChange"></AutoCompleteEvents>
                     <AutoCompleteFieldSettings Value="Code"></AutoCompleteFieldSettings>
                 </SfAutoComplete>
@@ -181,7 +173,7 @@
             {
                 <div class="form-group">
                     <label class="e-form-label">Procedure</label>
-                    <SfDropDownList TValue="string" TItem="string" DataSource="Procedures" @bind-Value="NewLine.Procedure" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                    <SfDropDownList TValue="string" TItem="string" DataSource="Procedures" @bind-Value="NewLine!.Procedure" AllowFiltering="true" EnableVirtualization="true" SortOrder="Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
                         <DropDownListFieldSettings Value="Name"></DropDownListFieldSettings>
                         <DropDownListEvents TValue="string" TItem="string" ValueChange="OnValueChangeProcedure"></DropDownListEvents>
                     </SfDropDownList>
@@ -193,11 +185,11 @@
             }
             <div class="form-group">
                 <label class="e-form-label">Quantity</label>
-                <SfNumericTextBox CssClass="me-1" @bind-Value="NewLine.Quantity" ShowSpinButton="false" />
+                <SfNumericTextBox CssClass="me-1" @bind-Value="NewLine!.Quantity" ShowSpinButton="false" />
             </div>
         </FormItems>
         <FormButtons>
-            <SfButton IsPrimary="true" typeof="submit">Add</SfButton>
+                    <SfButton CssClass="e-primary" typeof="submit">Add</SfButton>
         </FormButtons>
     </SfDataForm>
         </Content>
@@ -225,13 +217,13 @@
     [Parameter]
     public int ID { get; set; }
 
-    List<ImportLine> theJobCardLines { get; set; }
-    ImportLine SelectedImportLine { get; set; }
-    ImportHeader theJobCard { get; set; }
-    SfGrid<ImportLine> Grid;
-    List<Product> Products { get; set; }
+    List<ImportLine> theJobCardLines { get; set; } = new List<ImportLine>();
+    ImportLine SelectedImportLine { get; set; } = new ImportLine();
+    ImportHeader theJobCard { get; set; } = new ImportHeader();
+    SfGrid<ImportLine>? Grid;  
+    List<Product> Products { get; set; } = new List<Product>();
     Product? SelectedProduct { get; set; }
-    List<string> Procedures { get; set; }
+    List<string> Procedures { get; set; } = new List<string>();
 
     SfToast? Toast;    
     private ToastOptions Options = new();
@@ -403,7 +395,7 @@
         SelectedProduct = args.ItemData;
         if (SelectedProduct == null)
         {
-            NewLine.ItemNumber = "";
+            NewLine!.ItemNumber = "";
             NewLine.Description = "";
             return;
         }
